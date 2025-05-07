@@ -1,0 +1,280 @@
+---
+title: "statistical description of seroprevalence of ZCD (Zika, Chikungunya, Dengue) 
+"
+author: 
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#and explore pregnancy outcomes 
+
+#R Script: Seroprevalence of ZCD and Birth Outcomes
+
+
+# Load required libraries
+library(tidyverse)
+
+setwd("D:/DATA_ABSTRACTS/data")
+
+data <- read.csv("all.csv")
+
+
+data <- data %>% select(-X)
+
+
+
+```
+
+
+### Count of those that were tested for any of these zcd
+```{r}
+data <- data %>%
+  filter(
+    zcd_lbperf_1 == 1 |  # zikv igm
+    zcd_lbperf_2 == 1 |  # zikv igg
+    zcd_lbperf_3 == 1 |  # denv igm
+    zcd_lbperf_4 == 1 |  # denv igg
+    zcd_lbperf_5 == 1 |  # chkv igm
+    zcd_lbperf_6 == 1    # chkv igg
+  )
+
+cat("Participants tested for any ZCD tests:", nrow(data), "\n")
+
+```
+
+
+#### Count of those with complete testing for all
+
+```{r}
+
+data <- data %>%filter(
+    zcd_lbperf_1 == 1,  # ZIKV IgM
+    zcd_lbperf_2 == 1,  # ZIKV IgG
+    zcd_lbperf_3 == 1,  # DENV IgM
+    zcd_lbperf_4 == 1,  # DENV IgG
+    zcd_lbperf_5 == 1,  # CHKV IgM
+    zcd_lbperf_6 == 1   # CHKV IgG
+  )
+
+# Count of those with complete testing
+cat("Participants tested for ALL ZCD tests:", nrow(data), "\n")
+
+```
+
+```{r}
+# 1. Recode test result variables for clarity
+recode_test_result <- function(x) {
+  factor(x, levels = c(0, 1, 2),
+         labels = c("Negative", "Positive", "Inconclusive"))
+}
+```
+
+
+```{r}
+
+
+data <- data %>% mutate(age_group = case_when(
+  momage < 30         ~ "Young",       
+  momage >= 30 & momage < 60 ~ "Middle-aged", 
+  TRUE                 ~ NA_character_ 
+))
+
+data <- data %>%
+  rename(
+    delivery_date = deliv_dsstdat_inf1,
+    birthoutcome = birth_dsterm_inf1,
+    gonorhea=ctng_ng_lborres,
+    chlamydia=ctng_ct_lborres,
+    gonor_test =ctng_lbperf_2,
+    chlam_test= ctng_lbperf_1
+    
+  )
+
+
+
+data <- data %>%
+  mutate(birthoutcome = factor(case_when(
+    birthoutcome == 1 ~ "Live birth",
+    birthoutcome == 2 ~ "Fetal death",
+    birthoutcome == 77  ~ "Miscarriages",
+    TRUE ~ NA_character_
+  ), levels = c("Live birth", "Fetal death","Miscarriages")))
+
+
+data <- data %>%
+  mutate(
+    zikv_igm_result = recode_test_result(zcd_zikigm_lborres),
+    zikv_igg_result = recode_test_result(zcd_zikigg_lborres),
+    denv_igm_result = recode_test_result(zcd_denigm_lborres),
+    denv_igg_result = recode_test_result(zcd_denigg_lborres),
+    chkv_igm_result = recode_test_result(zcd_chkigm_lborres),
+    chkv_igg_result = recode_test_result(zcd_chkigg_lborres)
+  )
+```
+
+
+#### Basic Demographics
+
+```{r}
+cat(" Total number of observations:", nrow(data),"(These are only those that were tested for these)", "\n")
+```
+
+
+
+
+```{r abbreviation-table, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+
+# Create abbreviation table
+abbrev_table <- data.frame(
+  Abbreviation = c("ZCD", "ZIKV", "DENV", "CHKV", "IgM", "IgG"),
+  `Full Meaning` = c(
+    "Zika–Chikungunya–Dengue (a combined reference to three viruses)",
+    "Zika Virus",
+    "Dengue Virus",
+    "Chikungunya Virus",
+    "Immunoglobulin M ",
+    "Immunoglobulin G "
+  )
+)
+
+# Print as nice table
+kable(abbrev_table, caption = "Table: Definitions of ZCD-related Abbreviations")
+
+
+
+
+
+```
+
+####  Summary of mothers age
+```{r }
+summary(data$momage)
+```
+
+####  Age group of Mothers :Middle-aged (age>=30 years )and Young(age < 30 years)
+```{r}
+table(data$age_group)
+
+```
+####  Count of Birthoutcome
+```{r}
+table(data$birthoutcome)
+```
+
+
+
+#### 2.  seroprevalence of each types of ZCD
+
+```{r}
+
+# 2. Calculate seroprevalence of each infection type
+calculate_seroprevalence <- function(var) {
+  round(prop.table(table(var)) * 100, 1)
+}
+
+seroprevalence <- list(
+  ZIKV_IgM = calculate_seroprevalence(data$zikv_igm_result),
+  ZIKV_IgG = calculate_seroprevalence(data$zikv_igg_result),
+  DENV_IgM = calculate_seroprevalence(data$denv_igm_result),
+  DENV_IgG = calculate_seroprevalence(data$denv_igg_result),
+  CHKV_IgM = calculate_seroprevalence(data$chkv_igm_result),
+  CHKV_IgG = calculate_seroprevalence(data$chkv_igg_result)
+)
+
+print("Seroprevalence (%):")
+print(seroprevalence)
+```
+
+
+####  3.  combined seroprevalence variable (positive to any)
+
+```{r}
+# [
+#     zcd_zikigm_lborres,
+#     zcd_zikigg_lborres,
+#     zcd_denigm_lborres,
+#     zcd_denigg_lborres,
+#     zcd_chkigm_lborres,
+#     zcd_chkigg_lborres
+# ]
+
+
+# 3. Create combined seroprevalence variable (positive to any)
+data <- data %>%
+  mutate(
+    any_zcd_positive = ifelse(
+      zcd_zikigm_lborres == 1 | zcd_zikigg_lborres == 1 |
+        zcd_denigm_lborres == 1 | zcd_denigg_lborres == 1 |
+        zcd_chkigm_lborres == 1 | zcd_chkigg_lborres == 1,
+      1, 0
+    )
+  )
+
+
+data <- data %>% mutate( any_zcd_positive=factor(case_when( any_zcd_positive== 1 ~"Positive",                                           any_zcd_positive== 0 ~"Negative",
+TRUE ~ NA_character_),levels=c("Positive","Negative")))
+
+```
+
+
+#### 4. Tabulate seropositivity among pregnant women
+
+```{r}
+
+# 4. Tabulate seropositivity among pregnant women
+cat("Overall ZCD Seroprevalence among pregnant women:\n")
+
+```
+
+#### The count of overall seroprevalence
+```{r}
+print(table(data$any_zcd_positive))
+```
+
+#### Percentages of the overall seroprevalence(%)
+```{r}
+print(round(prop.table(table(data$any_zcd_positive)) * 100, 1))
+```
+
+
+#### 5. ZCDs  By  birth outcomes
+
+```{r}
+```
+
+
+```{r}
+
+zcd_summary <- data %>%filter(!is.na(data$birthoutcome)) %>% 
+  mutate(
+    zikv_igm_pos = zcd_zikigm_lborres == 1,
+    zikv_igg_pos = zcd_zikigg_lborres == 1,
+    denv_igm_pos = zcd_denigm_lborres == 1,
+    denv_igg_pos = zcd_denigg_lborres == 1,
+    chkv_igm_pos = zcd_chkigm_lborres == 1,
+    chkv_igg_pos = zcd_chkigg_lborres == 1
+  ) %>%
+  group_by(birthoutcome) %>%
+  summarise(
+    total = n(),
+        zikv_igm = paste0(sum(zikv_igm_pos, na.rm = TRUE), " (", round(100 * mean(zikv_igm_pos, na.rm = TRUE), 1), "%)"),
+    zikv_igg = paste0(sum(zikv_igg_pos, na.rm = TRUE), " (", round(100 * mean(zikv_igg_pos, na.rm = TRUE), 1), "%)"),
+    denv_igm = paste0(sum(denv_igm_pos, na.rm = TRUE), " (", round(100 * mean(denv_igm_pos, na.rm = TRUE), 1), "%)"),
+    denv_igg = paste0(sum(denv_igg_pos, na.rm = TRUE), " (", round(100 * mean(denv_igg_pos, na.rm = TRUE), 1), "%)"),
+    chkv_igm = paste0(sum(chkv_igm_pos, na.rm = TRUE), " (", round(100 * mean(chkv_igm_pos, na.rm = TRUE), 1), "%)"),
+    chkv_igg = paste0(sum(chkv_igg_pos, na.rm = TRUE), " (", round(100 * mean(chkv_igg_pos, na.rm = TRUE), 1), "%)"),) %>% ungroup()
+
+
+```
+
+```{r}
+# View the final table
+print(zcd_summary)
+```
+

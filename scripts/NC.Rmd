@@ -1,0 +1,227 @@
+---
+title: "The Prevalence of Chlamydia And Gonorrhea Infections Among Pregnant Women"
+author: 
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+#Load libraries
+library(tidyverse)
+library(janitor)
+```
+
+
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+
+setwd("D:/DATA_ABSTRACTS/data")
+
+data <- read.csv("all.csv")
+ 
+
+data <- data %>% select(-X)
+
+data <- data %>%
+  rename(
+    delivery_date = deliv_dsstdat_inf1,
+    birthoutcome = birth_dsterm_inf1,
+    gonorhea=ctng_ng_lborres,
+    chlamydia=ctng_ct_lborres,
+    gonor_test =ctng_lbperf_2,
+    chlam_test= ctng_lbperf_1
+    
+  )
+
+```
+
+
+
+```{r}
+data$delivery_date <- dmy(data$delivery_date)
+```
+
+
+```{r}
+
+# Total number of of those who were tested are 161
+data <- data%>% filter((data$chlam_test==1&data$gonor_test==1))
+
+
+```
+
+
+```{r echo=FALSE}
+
+
+data <- data %>% mutate(age_group = case_when(
+  momage < 30         ~ "Young",       
+  momage >= 30 & momage < 60 ~ "Middle-aged", 
+  TRUE                 ~ NA_character_ 
+))
+
+data <- data %>%
+  mutate(birthoutcome = factor(case_when(
+    birthoutcome == 1 ~ "Live birth",
+    birthoutcome == 2 ~ "Fetal death",
+    birthoutcome == 77  ~ "Miscarriages",
+    TRUE ~ NA_character_
+  ), levels = c("Live birth", "Fetal death","Miscarriages")))
+
+data <- data %>%
+  mutate(gonorhea = factor(case_when(
+    gonorhea == 0 ~ "Negative", 
+    gonorhea == 1 ~ "Positive",
+    gonorhea == 2 ~ "Inconclusive",
+    TRUE ~ NA_character_
+  ), levels = c("Negative", "Positive", "Inconclusive")))
+
+
+
+data <- data %>%
+  mutate(chlamydia = factor(case_when(
+    chlamydia == 0 ~ "Negative", 
+    chlamydia == 1 ~ "Positive",
+    chlamydia == 2 ~ "Inconclusive",
+    TRUE ~ NA_character_
+  ), levels = c("Negative", "Positive", "Inconclusive")))
+
+
+
+data <- data %>%
+  mutate(
+    chlamydia_pos = ifelse(chlamydia == 1, 1, 0),
+    gonorrhea_pos = ifelse(gonorhea == 1, 1, 0),
+    any_infection = ifelse(chlamydia_pos == 1 | gonorrhea_pos == 1, 1, 0)
+  )
+
+# # 4. Cross-tab: Any Infection vs Birth Outcome
+# data %>%drop_na() %>% 
+#   tabyl(gonorhea, birthoutcome) %>%
+#   adorn_percentages("row") %>%
+#   adorn_pct_formatting()
+
+
+```
+
+
+#### Basic Demographics
+#### Total number of observations :710 out of 2370 (These are only those that were tested for these infections)
+
+
+####  Summary of mothers age
+```{r }
+summary(data$momage)
+```
+
+####  Age group of Mothers :Middle-aged (age>=30 years )and Young(age < 30 years)
+```{r}
+table(data$age_group)
+
+```
+####  Count of Birthoutcome
+```{r}
+table(data$birthoutcome)
+```
+
+
+#### 1. Prevalence of Chlamydia
+
+```{r}
+
+data %>%
+  count(chlamydia) %>%
+  mutate(Percentage = n / sum(n) * 100) %>%
+  rename(Count = n, Chlamydia_Status = chlamydia) %>%
+  arrange(desc(Percentage))
+
+```
+
+#### 2. Prevalence of Gonorrhea
+
+```{r}
+data %>%
+  count(gonorhea) %>%
+  mutate(Percentage = n / sum(n) * 100) %>%
+  rename(Count = n, gonorhea_Status = gonorhea) %>%
+  arrange(desc(Percentage))
+
+```
+#### 3. Chlamydia vs Birth Outcome
+
+```{r}
+
+chlamydia_vs_outcome <- data %>%
+  filter(!is.na(chlamydia), !is.na(birthoutcome)) %>%
+  count(chlamydia, birthoutcome) %>%
+  group_by(chlamydia) %>%
+  mutate(percent = n / sum(n) * 100)
+
+print(chlamydia_vs_outcome)
+
+```
+
+
+#### 4. Gonorrhea vs Birth Outcome
+
+```{r}
+
+gonorrhea_vs_outcome <- data %>%
+  filter(!is.na(gonorhea), !is.na(birthoutcome)) %>%
+  count(gonorhea, birthoutcome) %>%
+  group_by(gonorhea) %>%
+  mutate(percent = n / sum(n) * 100)
+
+print(gonorrhea_vs_outcome)
+
+
+```
+
+
+<!-- ```{r} -->
+
+<!-- # 3. Create combined seroprevalence variable (positive to any) -->
+<!-- data <- data %>% -->
+<!--   mutate( -->
+<!--     any_NC_positive = ifelse(gonorhea == 1 | chlamydia == 1,  -->
+<!--       1, 0 -->
+<!--     ) -->
+<!--   ) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- data <- data %>% mutate( any_NC_positive=factor(case_when( any_NC_positive== 1 ~"Positive",                                           any_NC_positive== 0 ~"Negative", -->
+<!-- TRUE ~ NA_character_),levels=c("Positive","Negative"))) -->
+<!-- ``` -->
+
+
+
+<!-- #### 4. Tabulate Prevalence among pregnant women -->
+
+<!-- ```{r} -->
+
+<!-- # 4. Tabulate prevalence among pregnant women -->
+<!-- cat("Overall NCs prevalence among pregnant women:\n") -->
+
+<!-- ``` -->
+
+<!-- #### The count of overall prevalence -->
+<!-- ```{r} -->
+<!-- print(table(data$any_NC_positive)) -->
+<!-- ``` -->
+
+<!-- #### Percentages of the overall seroprevalence(%) -->
+<!-- ```{r} -->
+<!-- print(round(prop.table(table(data$any_NC_positive)) * 100, 1)) -->
+<!-- ``` -->
+
